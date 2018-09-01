@@ -126,7 +126,8 @@ namespace WIMConsole
                     chapterChoiceMap.Add(i.ToString(), chapter.ParentChapter);
                     i++;
                 }
-                Console.WriteLine(i + ") Return to menu");
+                Console.WriteLine(i + ") Download chapter data");
+                Console.WriteLine((i + 1).ToString() + ") Return to menu");
                 bool inputValid = false;
                 while (!inputValid)
                 {
@@ -140,6 +141,12 @@ namespace WIMConsole
                     else if(choice == i.ToString())
                     {
                         inputValid = true;
+                        Task chapterDownloadTask = loadedStory.DownloadChapterData(chapterIndex);
+                        VisualWaitForTask(chapterDownloadTask, "Downloading chapter data");
+                    }
+                    else if(choice == (i + 1).ToString())
+                    {
+                        inputValid = true;
                         return;
                     }
                     else
@@ -147,8 +154,7 @@ namespace WIMConsole
                         Console.WriteLine("Input invalid");
                     }
                 }
-            }
-            
+            }           
         }
 
         private static void DisplayChapter(Chapter chapter)
@@ -156,7 +162,7 @@ namespace WIMConsole
             Console.WriteLine();
             Console.Write("Choice Path: ");
             foreach (byte c in loadedStory.GetChoicePath(chapter))
-                Console.Write(c + " ");
+                Console.Write(c);
             Console.WriteLine();
             Console.WriteLine("Chapter Title: " + chapter.Title);
             Console.WriteLine("Author: " + chapter.Author);

@@ -1,7 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.IO;
+using HtmlAgilityPack;
 
 namespace WIMCore
 {
@@ -108,5 +108,18 @@ namespace WIMCore
             ChildChapters[choice] = chapterIndex;
         }
 
+        public async Task DownloadData(string chapterUrl)
+        {
+            HtmlDocument chapterDoc = await WebUtilities.GetHtmlDocumentAsync(chapterUrl);
+            bool gotBusyPage = !WebUtilities.GetHtmlPageTitleNode(chapterDoc).InnerText.Contains(Title);
+            while (gotBusyPage)
+            {
+                await Task.Delay(2000);
+                chapterDoc = await WebUtilities.GetHtmlDocumentAsync(chapterUrl);
+                gotBusyPage = !WebUtilities.GetHtmlPageTitleNode(chapterDoc).InnerText.Contains(Title);
+            }
+            HtmlNode textNode = WebUtilities.GetHtmlNodeByClass(chapterDoc.DocumentNode, "KonaBody");
+            Text = WebUtilities.CleanHtmlSymbols(textNode.InnerText);
+        }
     }
 }

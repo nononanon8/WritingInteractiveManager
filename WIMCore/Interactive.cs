@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Net.Http;
+using System.Threading;
 using HtmlAgilityPack;
 using System.IO;
 
@@ -126,6 +124,15 @@ namespace WIMCore
             return choices;
         }
 
+        public string GetChoicePathString(ushort chapterIndex)
+        {
+            List<byte> choices = GetChoicePath(chapterIndex);
+            string str = "";
+            foreach (byte c in choices)
+                str += c.ToString();
+            return str;
+        }
+
         // Add and link chapter, or update if chapter already exists.
         private void AddChapter(Chapter chapter, List<byte> choicePath)
         {
@@ -174,6 +181,12 @@ namespace WIMCore
                     count++;
             }
             return count;
+        }
+
+        public async Task DownloadChapterData(ushort chapterIndex)
+        {
+            string url = BaseUrl + ItemId + "/map/" + GetChoicePathString(chapterIndex);
+            await Chapters[chapterIndex].DownloadData(url);
         }
 
         public static Interactive LoadLocal(Stream stream)
