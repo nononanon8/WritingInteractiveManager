@@ -72,7 +72,11 @@ namespace WIMCore
             {
                 // span element contains choice path string (1-2-1-1-3-...).
                 if (outlineHtmlNodes[nodeIndex].Name.Equals("span", StringComparison.OrdinalIgnoreCase))
+                {
                     spanNode = outlineHtmlNodes[nodeIndex];
+                    // span element must come first.
+                    bNode = null;
+                }
                 // b element contains chapter name.
                 else if (outlineHtmlNodes[nodeIndex].Name.Equals("b", StringComparison.OrdinalIgnoreCase))
                     bNode = outlineHtmlNodes[nodeIndex];
@@ -89,6 +93,8 @@ namespace WIMCore
                         choices.Add(byte.Parse(s));
 
                     string chapterName = WebUtilities.CleanHtmlSymbols(bNode.InnerText);
+                    // Remove "#_: " from start of name.
+                    chapterName = chapterName.Substring(chapterName.IndexOf(' ') + 1);
                     Chapter chapter = new Chapter(chapterName, choices[choices.Count - 1]);
                     story.AddChapter(chapter, choices);
                     spanNode = null;
@@ -98,6 +104,26 @@ namespace WIMCore
             }
 
             return story;
+        }
+
+        public List<byte> GetChoicePath(ushort chapterIndex)
+        {
+            List<byte> choices = new List<byte>();
+            
+            while(chapterIndex != 0xFFFF)
+            {
+                choices.Add(Chapters[chapterIndex].ChoiceNum);
+                chapterIndex = Chapters[chapterIndex].ParentChapter;
+            }
+            choices.Reverse();
+            return choices;
+        }
+
+        public List<byte> GetChoicePath(Chapter chapter)
+        {
+            List<byte> choices = GetChoicePath(chapter.ParentChapter);
+            choices.Add(chapter.ChoiceNum);
+            return choices;
         }
 
         // Add and link chapter, or update if chapter already exists.

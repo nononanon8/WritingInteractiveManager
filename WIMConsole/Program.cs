@@ -153,6 +153,11 @@ namespace WIMConsole
 
         private static void DisplayChapter(Chapter chapter)
         {
+            Console.WriteLine();
+            Console.Write("Choice Path: ");
+            foreach (byte c in loadedStory.GetChoicePath(chapter))
+                Console.Write(c + " ");
+            Console.WriteLine();
             Console.WriteLine("Chapter Title: " + chapter.Title);
             Console.WriteLine("Author: " + chapter.Author);
             Console.WriteLine(chapter.Text);
@@ -162,10 +167,10 @@ namespace WIMConsole
                 if(chapter.ChildChapters[i] != 0xFFFF)
                 {
                     Console.Write(i + ") ");
-                    if (chapter.ChoiceDescriptions.Count > i)
+                    if (chapter.ChoiceDescriptions.Count > i && chapter.ChoiceDescriptions[i] != "")
                         Console.WriteLine(chapter.ChoiceDescriptions[i]);
                     else
-                        Console.WriteLine();
+                        Console.WriteLine(loadedStory.Chapters[chapter.ChildChapters[i]].Title);
                 }
             }
         }
