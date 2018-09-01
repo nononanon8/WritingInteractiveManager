@@ -26,9 +26,10 @@ namespace WIMCore
             Task<HtmlDocument> responseDocTask = GetHtmlDocumentAsync(response);
             UpdateCookies(response);
             HtmlDocument responseDoc = await responseDocTask;
-            HtmlNode titleNode = GetHtmlNodeByTag(responseDoc.DocumentNode, "title");
+            //HtmlNode titleNode = GetHtmlNodeByTag(responseDoc.DocumentNode, "title");
+            HtmlNode titleNode = WebUtilities.GetHtmlPageTitleNode(responseDoc);
             if (titleNode.InnerText.Contains("Login Failed"))
-                throw new Exception("Login error");
+                throw new Exception("Login failed");
         }
 
         private static void UpdateCookies(HttpResponseMessage response)
@@ -134,5 +135,25 @@ namespace WIMCore
             }
             return rawText;
         }
+
+        public static HtmlNode GetHtmlPageTitleNode(HtmlDocument htmlDoc)
+        {
+            return htmlDoc.DocumentNode.SelectSingleNode("html[1]/head[1]/title[1]");
+        }
+
+        public static HtmlNode GetHtmlNodeByAttributePartial(HtmlNode rootNode, string attribName, string partialAttribValue)
+        {
+            List<HtmlNode> searchStack = new List<HtmlNode> { rootNode };
+            while (searchStack.Count > 0)
+            {
+                HtmlNode currentNode = searchStack[searchStack.Count - 1];
+                if (currentNode.GetAttributeValue(attribName, "").Contains(partialAttribValue))
+                    return currentNode;
+                searchStack.RemoveAt(searchStack.Count - 1);
+                searchStack.AddRange(currentNode.ChildNodes);
+            }
+            return null;
+        }
+
     }
 }

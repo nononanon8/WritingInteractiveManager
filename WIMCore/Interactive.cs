@@ -41,16 +41,18 @@ namespace WIMCore
         {
             Interactive story = new Interactive(itemId);
             HtmlDocument htmlDoc = await WebUtilities.GetHtmlDocumentAsync(BaseUrl + '/' + itemId);
-            HtmlNode pageTitleNode = WebUtilities.GetHtmlNodeByTag(htmlDoc.DocumentNode, "title");
+            //HtmlNode pageTitleNode = WebUtilities.GetHtmlNodeByTag(htmlDoc.DocumentNode, "title");
+            HtmlNode pageTitleNode = WebUtilities.GetHtmlPageTitleNode(htmlDoc);
             if (pageTitleNode.InnerText.Contains("Item Not Found"))
                 throw new Exception("Story not found");
             HtmlNode titleNode = WebUtilities.GetHtmlNodeByClass(htmlDoc.DocumentNode, "proll");
             story.Title = WebUtilities.CleanHtmlSymbols(titleNode.InnerText);
-            // Owner
+            HtmlNode ownerNode = WebUtilities.GetHtmlNodeByAttributePartial(htmlDoc.DocumentNode, "title", "Username:");
+            story.Owner = ownerNode.InnerText;
             HtmlNode descriptionNode = WebUtilities.GetHtmlNodeByAttribute(htmlDoc.DocumentNode, "NAME", "description");
             story.Description = WebUtilities.CleanHtmlSymbols(descriptionNode.Attributes["content"].Value);
-            // InfoText
-
+            HtmlNode infoTextNode = WebUtilities.GetHtmlNodeByTag(htmlDoc.DocumentNode, "td");
+            story.InfoText = infoTextNode.InnerText;
             // RootChapters
             // Chapters
 

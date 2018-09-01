@@ -19,7 +19,8 @@ namespace WIMConsole
                     Console.WriteLine("**Menu**");
                     Console.WriteLine("1) Login");
                     Console.WriteLine("2) Load Story");
-                    Console.WriteLine("3) Exit");
+                    Console.WriteLine("3) View Story Info");
+                    Console.WriteLine("4) Exit");
                 }
                 reprintMenu = true;
                 Console.Write("Enter action number: ");
@@ -33,6 +34,9 @@ namespace WIMConsole
                         LoadStory();
                         break;
                     case "3":
+                        ShowStoryInfo();
+                        break;
+                    case "4":
                         Console.WriteLine("Goodbye!");
                         Thread.Sleep(1000);
                         return;
@@ -42,6 +46,12 @@ namespace WIMConsole
                         break;
                 }
             }           
+        }
+        
+        private static void WaitForEnter()
+        {
+            Console.Write("Press enter to continue");
+            Console.ReadLine();
         }
 
         private static void LoadStory()
@@ -71,11 +81,9 @@ namespace WIMConsole
             catch (Exception e)
             {
                 Console.WriteLine("Unable to download story info: " + e.Message);
-                Console.Write("Press enter to continue");
-                Console.ReadLine();
+                WaitForEnter();
             }
-            Console.WriteLine("Story info downloaded");
-            Console.WriteLine(loadedStory.ToString());
+            Console.WriteLine("Info for " + loadedStory.Title + " downloaded");
         }
 
         private static void Login()
@@ -88,22 +96,32 @@ namespace WIMConsole
             {
                 Task loginTask = WebUtilities.LoginAsync(username, password);
                 VisualWaitForTask(loginTask, "Logging in");
-                Console.WriteLine("Logged in as " + username + Environment.NewLine);
+                Console.WriteLine("Logged in as " + username);
             }
             catch (Exception e)
             {
                 Console.WriteLine("Unable to login: " + e.Message);
-                Console.Write("Press enter to continue");
-                Console.ReadLine();
+                WaitForEnter();
                 return;
             }
+        }
+
+        private static void ShowStoryInfo()
+        {
+            if(loadedStory == null)
+            {
+                Console.WriteLine("No story loaded");
+                return;
+            }
+            Console.WriteLine(loadedStory.ToString());
+            Console.WriteLine("Info & Guidance: " + loadedStory.InfoText);
         }
 
         private static void VisualWaitForTask(Task task, string message)
         {
             string[] workingDots = new string[3] { ".   ", "..  ", "... " };
             int i = 0;
-            while (task.Status != TaskStatus.RanToCompletion)
+            while (task.Status != TaskStatus.RanToCompletion && task.Status != TaskStatus.Faulted)
             {
                 Console.Write("\r" + message + " " + workingDots[i]);
                 if (i < 2)
@@ -113,6 +131,8 @@ namespace WIMConsole
                 Thread.Sleep(500);
             }
             Console.WriteLine("\r" + message + " " + workingDots[2]);
+            if (task.Status == TaskStatus.Faulted)
+                throw task.Exception;
         }
     }
 }
