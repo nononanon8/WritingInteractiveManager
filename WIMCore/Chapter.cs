@@ -26,6 +26,12 @@ namespace WIMCore
             ChoiceDescriptions = new Dictionary<byte, string>();
         }
 
+        public Chapter(string title, byte choiceNum) : this()
+        {
+            Title = title;
+            ChoiceNum = choiceNum;
+        }
+
         public static Chapter LoadLocal(Stream stream)
         {
             Chapter chapter = new Chapter();

@@ -11,7 +11,8 @@ namespace WIMCore
 {
     public class Interactive
     {
-        private const string BaseUrl = "https://www.writing.com/main/interact/item_id";
+        private const string BaseUrl = "https://www.writing.com/main/interact/item_id/";
+        private const string OutlineUrlSeg = "/action/pop_outline";
 
         public uint ItemId { get; private set; }
         public string Title { get; private set; }
@@ -40,21 +41,61 @@ namespace WIMCore
         public static async Task<Interactive> LoadWebSkeleton(uint itemId)
         {
             Interactive story = new Interactive(itemId);
-            HtmlDocument htmlDoc = await WebUtilities.GetHtmlDocumentAsync(BaseUrl + '/' + itemId);
-            //HtmlNode pageTitleNode = WebUtilities.GetHtmlNodeByTag(htmlDoc.DocumentNode, "title");
+            // Get HTML document for main story page.
+            HtmlDocument htmlDoc = await WebUtilities.GetHtmlDocumentAsync(BaseUrl + itemId);
+            // Start downloading outline page.
+            Task<HtmlDocument> outlineDocTask = WebUtilities.GetHtmlDocumentAsync(BaseUrl + itemId + OutlineUrlSeg);
+            // Check page title node to see if a valid ID was given.
             HtmlNode pageTitleNode = WebUtilities.GetHtmlPageTitleNode(htmlDoc);
             if (pageTitleNode.InnerText.Contains("Item Not Found"))
                 throw new Exception("Story not found");
+
+            // Find the HTML node with the text for each field we need, and assign the field value.
             HtmlNode titleNode = WebUtilities.GetHtmlNodeByClass(htmlDoc.DocumentNode, "proll");
             story.Title = WebUtilities.CleanHtmlSymbols(titleNode.InnerText);
             HtmlNode ownerNode = WebUtilities.GetHtmlNodeByAttributePartial(htmlDoc.DocumentNode, "title", "Username:");
-            story.Owner = ownerNode.InnerText;
+            story.Owner = WebUtilities.CleanHtmlSymbols(ownerNode.InnerText);
             HtmlNode descriptionNode = WebUtilities.GetHtmlNodeByAttribute(htmlDoc.DocumentNode, "NAME", "description");
             story.Description = WebUtilities.CleanHtmlSymbols(descriptionNode.Attributes["content"].Value);
             HtmlNode infoTextNode = WebUtilities.GetHtmlNodeByTag(htmlDoc.DocumentNode, "td");
-            story.InfoText = infoTextNode.InnerText;
-            // RootChapters
-            // Chapters
+            story.InfoText = WebUtilities.CleanHtmlSymbols(infoTextNode.InnerText);
+
+            // Finish getting the outline HTML document.
+            HtmlDocument outlineDoc = await outlineDocTask;
+            // Parse out chapter names and map structure.
+            HtmlNode outlineParentNode = WebUtilities.GetHtmlNodeByTag(outlineDoc.DocumentNode, "pre");
+            List<HtmlNode> outlineHtmlNodes = new List<HtmlNode>(outlineParentNode.ChildNodes);
+            int nodeIndex = 0;
+            HtmlNode spanNode = null;
+            HtmlNode bNode = null;
+            while (nodeIndex < outlineHtmlNodes.Count)
+            {
+                // span element contains choice path string (1-2-1-1-3-...).
+                if (outlineHtmlNodes[nodeIndex].Name.Equals("span", StringComparison.OrdinalIgnoreCase))
+                    spanNode = outlineHtmlNodes[nodeIndex];
+                // b element contains chapter name.
+                else if (outlineHtmlNodes[nodeIndex].Name.Equals("b", StringComparison.OrdinalIgnoreCase))
+                    bNode = outlineHtmlNodes[nodeIndex];
+
+                if(spanNode != null && bNode != null)
+                {
+                    // Get choice path as array of ints.
+                    string choicePathStr = spanNode.InnerText;
+                    // Remove junk at end.
+                    choicePathStr = choicePathStr.Substring(0, choicePathStr.Length - 7);
+                    // Convert to int.
+                    List<int> choices = new List<int>();
+                    foreach (string s in choicePathStr.Split('-'))
+                        choices.Add(int.Parse(s));
+
+                    string chapterName = WebUtilities.CleanHtmlSymbols(bNode.InnerText);
+                    story.Chapters.Add(new Chapter(chapterName, (byte)choices[choices.Count - 1]));
+
+                    spanNode = null;
+                    bNode = null;
+                }
+                nodeIndex++;
+            }
 
             return story;
         }

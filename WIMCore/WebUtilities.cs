@@ -14,36 +14,48 @@ namespace WIMCore
         private static HttpClient httpClient = new HttpClient();
         private static Dictionary<string, string> cookieDict = new Dictionary<string, string>();
 
+        // Login to Writing.com.
         public static async Task LoginAsync(string username, string password)
         {
+            // Endcode login info.
             Dictionary<string, string> contentDict = new Dictionary<string, string>();
             contentDict.Add("login_password", password);
             contentDict.Add("login_username", username);
+            // Not sure if this is needed, but it's sent by Edge browser.
             contentDict.Add("submit", "submit");
             FormUrlEncodedContent formEncContent = new FormUrlEncodedContent(contentDict);
+            // Send post message with login info, get response.
             HttpResponseMessage response = await httpClient.PostAsync(LoginUrl, formEncContent);
-
+            // Start decoding HTML document from response.
             Task<HtmlDocument> responseDocTask = GetHtmlDocumentAsync(response);
+            // Response contains new cookie values, including user token from login.
             UpdateCookies(response);
+            // Finish decoding HTML document.
             HtmlDocument responseDoc = await responseDocTask;
-            //HtmlNode titleNode = GetHtmlNodeByTag(responseDoc.DocumentNode, "title");
+            // Check page title text to see if login was successful.
             HtmlNode titleNode = WebUtilities.GetHtmlPageTitleNode(responseDoc);
             if (titleNode.InnerText.Contains("Login Failed"))
                 throw new Exception("Login failed");
         }
 
+        // Update our dictionary of cookie values with those contained in response.
         private static void UpdateCookies(HttpResponseMessage response)
         {
+            // Values to upate are contained in "Set-Cookie" headers.
             List<string> cookieStrings = new List<string>(response.Headers.GetValues("Set-Cookie"));
+            // For each cookie...
             for (int i = 0; i < cookieStrings.Count; i++)
             {
+                // Format is "cookieName=cookieValue; cookieAttribute1=attribute1Value; ..."
+                // Attributes are ignored for now.
+                // Parse out cookie name (dictionary key) and value.
                 string cookieStr = cookieStrings[i];
                 int eqIndex = cookieStr.IndexOf('=');
                 if (eqIndex < 0)
                     throw new Exception("Invalid cookie string: " + cookieStr);
                 string key = cookieStr.Substring(0, eqIndex);
                 string val = cookieStr.Substring(eqIndex + 1, cookieStr.IndexOf(';') - (eqIndex + 1));
-
+                // Update existing cookie value or add new cookie to dictionary.
                 if (cookieDict.ContainsKey(key))
                     cookieDict[key] = val;
                 else
@@ -51,6 +63,7 @@ namespace WIMCore
             }
         }
 
+        // Convert cookie dictionary back into a set of formated strings.
         private static List<string> GetCookieStrings()
         {
             List<string> cookieStrings = new List<string>();
@@ -59,12 +72,15 @@ namespace WIMCore
             return cookieStrings;
         }
 
+        // Get page HTML (as a string) from a url.
         public static async Task<string> GetHtmlStringAsync(string url)
         {
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
+            // Add cookies so we can access member-only pages with login info.
             request.Headers.Add("Cookie", GetCookieStrings());
             HttpResponseMessage response = await httpClient.SendAsync(request);
             Task<string> htmlTask = response.Content.ReadAsStringAsync();
+            // All responses contain "Set-Cookie" headers, not sure how important they are.
             UpdateCookies(response);
             return await htmlTask;
         }
@@ -88,6 +104,10 @@ namespace WIMCore
             return htmlDoc;
         }
 
+
+        // These methods are used to pick out a certain element from an HTML document based
+        // on some unique proprty. They all traverse the document the same way, wich ends up
+        // being bottom to top, depth first.
 
         public static HtmlNode GetHtmlNodeByTag(HtmlNode rootNode, string tag)
         {
@@ -122,6 +142,30 @@ namespace WIMCore
             return GetHtmlNodeByAttribute(rootNode, "class", className);
         }
 
+        // Searches for an element with the attribute that contains the given value, instead of an exact match.
+        public static HtmlNode GetHtmlNodeByAttributePartial(HtmlNode rootNode, string attribName, string partialAttribValue)
+        {
+            List<HtmlNode> searchStack = new List<HtmlNode> { rootNode };
+            while (searchStack.Count > 0)
+            {
+                HtmlNode currentNode = searchStack[searchStack.Count - 1];
+                if (currentNode.GetAttributeValue(attribName, "").Contains(partialAttribValue))
+                    return currentNode;
+                searchStack.RemoveAt(searchStack.Count - 1);
+                searchStack.AddRange(currentNode.ChildNodes);
+            }
+            return null;
+        }
+
+        
+        // Title node is in header so it can be obtained reliably via XPath (no traversal).
+        public static HtmlNode GetHtmlPageTitleNode(HtmlDocument htmlDoc)
+        {
+            return htmlDoc.DocumentNode.SelectSingleNode("html[1]/head[1]/title[1]");
+        }
+
+        // Certain text symbols have an HTML escape encoding (there's probably a proper name, idk).
+        // This replaces those with the correct characters.
         public static string CleanHtmlSymbols(string rawText)
         {
             int htmlSymbolIndex = rawText.IndexOf("&#");
@@ -136,24 +180,8 @@ namespace WIMCore
             return rawText;
         }
 
-        public static HtmlNode GetHtmlPageTitleNode(HtmlDocument htmlDoc)
-        {
-            return htmlDoc.DocumentNode.SelectSingleNode("html[1]/head[1]/title[1]");
-        }
+        
 
-        public static HtmlNode GetHtmlNodeByAttributePartial(HtmlNode rootNode, string attribName, string partialAttribValue)
-        {
-            List<HtmlNode> searchStack = new List<HtmlNode> { rootNode };
-            while (searchStack.Count > 0)
-            {
-                HtmlNode currentNode = searchStack[searchStack.Count - 1];
-                if (currentNode.GetAttributeValue(attribName, "").Contains(partialAttribValue))
-                    return currentNode;
-                searchStack.RemoveAt(searchStack.Count - 1);
-                searchStack.AddRange(currentNode.ChildNodes);
-            }
-            return null;
-        }
 
     }
 }
