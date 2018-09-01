@@ -1,5 +1,5 @@
 # WritingInteractiveManager
-View and archive interactive stories from Writing.com.
+Download, view, and archive interactive stories from Writing.com.
 
 Nothing is in a usable state yet.  
 
