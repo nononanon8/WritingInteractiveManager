@@ -84,13 +84,13 @@ namespace WIMCore
                     // Remove junk at end.
                     choicePathStr = choicePathStr.Substring(0, choicePathStr.Length - 7);
                     // Convert to int.
-                    List<int> choices = new List<int>();
+                    List<byte> choices = new List<byte>();
                     foreach (string s in choicePathStr.Split('-'))
-                        choices.Add(int.Parse(s));
+                        choices.Add(byte.Parse(s));
 
                     string chapterName = WebUtilities.CleanHtmlSymbols(bNode.InnerText);
-                    story.Chapters.Add(new Chapter(chapterName, (byte)choices[choices.Count - 1]));
-
+                    Chapter chapter = new Chapter(chapterName, choices[choices.Count - 1]);
+                    story.AddChapter(chapter, choices);
                     spanNode = null;
                     bNode = null;
                 }
@@ -98,6 +98,56 @@ namespace WIMCore
             }
 
             return story;
+        }
+
+        // Add and link chapter, or update if chapter already exists.
+        private void AddChapter(Chapter chapter, List<byte> choicePath)
+        {
+            // Handle root chapter as a special case.
+            if(choicePath.Count == 1)
+            {
+                // Make sure root choice is a valid root chapter index.
+                while (RootChapters.Count <= choicePath[0])
+                    RootChapters.Add(0xFFFF);
+                // If the root choice chapter doesn't exist, add it.
+                if (RootChapters[choicePath[0]] == 0xFFFF)
+                {
+                    RootChapters[choicePath[0]] = (ushort)Chapters.Count;
+                    Chapters.Add(chapter);
+                }
+                // If the chapter already exists, update it.
+                else
+                    Chapters[RootChapters[choicePath[0]]].Update(chapter);
+            }
+            // If this is not a root chapter...
+            else
+            {
+                // Get immediate parent.
+                ushort parentIndex = RootChapters[choicePath[0]];
+                for (int i = 1; i < choicePath.Count - 1; i++)
+                    parentIndex = Chapters[parentIndex].ChildChapters[choicePath[i]];
+                // Add or update chapter.
+                byte finalChoice = choicePath[choicePath.Count - 1];
+                if (Chapters[parentIndex].HasChild(finalChoice))
+                    Chapters[Chapters[parentIndex].ChildChapters[finalChoice]].Update(chapter);
+                else
+                {
+                    Chapters[parentIndex].AddChild((ushort)Chapters.Count, finalChoice);
+                    Chapters.Add(chapter);
+                    chapter.ParentChapter = parentIndex;
+                }
+            }
+        }
+
+        public int GetUsedRootChapterCount()
+        {
+            int count = 0;
+            foreach(ushort rc in RootChapters)
+            {
+                if (rc != 0xFFFF)
+                    count++;
+            }
+            return count;
         }
 
         public static Interactive LoadLocal(Stream stream)

@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using System.Threading;
 using WIMCore;
+using System.Collections.Generic;
 
 namespace WIMConsole
 {
@@ -20,7 +21,8 @@ namespace WIMConsole
                     Console.WriteLine("1) Login");
                     Console.WriteLine("2) Load Story");
                     Console.WriteLine("3) View Story Info");
-                    Console.WriteLine("4) Exit");
+                    Console.WriteLine("4) Begin Story");
+                    Console.WriteLine("5) Exit");
                 }
                 reprintMenu = true;
                 Console.Write("Enter action number: ");
@@ -37,6 +39,9 @@ namespace WIMConsole
                         ShowStoryInfo();
                         break;
                     case "4":
+                        BeginStory();
+                        break;
+                    case "5":
                         Console.WriteLine("Goodbye!");
                         Thread.Sleep(1000);
                         return;
@@ -48,6 +53,123 @@ namespace WIMConsole
             }           
         }
         
+        private static void BeginStory()
+        {
+            if(loadedStory == null)
+            {
+                Console.WriteLine("No story loaded.");
+                return;
+            }
+            int usedRootChapterCount = loadedStory.GetUsedRootChapterCount();
+
+            if(usedRootChapterCount == 0)
+            {
+                Console.WriteLine("No root chapters founds found.");
+                WaitForEnter();
+                return;
+            }
+            else if(usedRootChapterCount > 1)
+            {
+                Console.WriteLine("Choose a beginning:");
+                Dictionary<string, ushort> validChoiceMap = new Dictionary<string, ushort>();
+                for(int i = 0; i < loadedStory.RootChapters.Count; i++)
+                {
+                    if(loadedStory.RootChapters[i] != 0xFFFF)
+                    {
+                        Console.WriteLine(i + ") " + loadedStory.Chapters[loadedStory.RootChapters[i]].Title);
+                        validChoiceMap.Add(i.ToString(), loadedStory.RootChapters[i]);
+                    }
+                }
+                bool inputValid = false;
+                while(!inputValid)
+                {
+                    Console.Write("Enter choice: ");
+                    string choice = Console.ReadLine();
+                    if (validChoiceMap.ContainsKey(choice))
+                    {
+                        inputValid = true;
+                        ExploreStory(validChoiceMap[choice]);
+                    }
+                    else
+                        Console.WriteLine("Invalid input");
+                }
+            }
+            else
+            {
+                foreach(ushort rc in loadedStory.RootChapters)
+                {
+                    if(rc != 0xFFFF)
+                    {
+                        ExploreStory(rc);
+                        return;
+                    }
+                }
+            }
+        }
+
+        private static void ExploreStory(ushort chapterIndex)
+        {
+            while (true)
+            {
+                Chapter chapter = loadedStory.Chapters[chapterIndex];
+                DisplayChapter(chapter);
+                Dictionary<string, ushort> chapterChoiceMap = new Dictionary<string, ushort>();
+                int i = 0;
+                for (i = 0; i < chapter.ChildChapters.Count; i++)
+                {
+                    if (chapter.ChildChapters[i] != 0xFFFF)
+                        chapterChoiceMap.Add(i.ToString(), chapter.ChildChapters[i]);
+                }
+                if (chapter.ParentChapter != 0xFFFF)
+                {
+                    Console.WriteLine(i + ") Go back to previous chapter");
+                    chapterChoiceMap.Add(i.ToString(), chapter.ParentChapter);
+                    i++;
+                }
+                Console.WriteLine(i + ") Return to menu");
+                bool inputValid = false;
+                while (!inputValid)
+                {
+                    Console.Write("Enter choice: ");
+                    string choice = Console.ReadLine();
+                    if(chapterChoiceMap.ContainsKey(choice))
+                    {
+                        inputValid = true;
+                        chapterIndex = chapterChoiceMap[choice];
+                    }
+                    else if(choice == i.ToString())
+                    {
+                        inputValid = true;
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Input invalid");
+                    }
+                }
+            }
+            
+        }
+
+        private static void DisplayChapter(Chapter chapter)
+        {
+            Console.WriteLine("Chapter Title: " + chapter.Title);
+            Console.WriteLine("Author: " + chapter.Author);
+            Console.WriteLine(chapter.Text);
+            Console.WriteLine("You have the following choices:");
+            for(int i = 0; i < chapter.ChildChapters.Count; i++)
+            {
+                if(chapter.ChildChapters[i] != 0xFFFF)
+                {
+                    Console.Write(i + ") ");
+                    if (chapter.ChoiceDescriptions.Count > i)
+                        Console.WriteLine(chapter.ChoiceDescriptions[i]);
+                    else
+                        Console.WriteLine();
+                }
+            }
+        }
+
         private static void WaitForEnter()
         {
             Console.Write("Press enter to continue");
@@ -83,7 +205,7 @@ namespace WIMConsole
                 Console.WriteLine("Unable to download story info: " + e.Message);
                 WaitForEnter();
             }
-            Console.WriteLine("Info for " + loadedStory.Title + " downloaded");
+            Console.WriteLine("Info for " + loadedStory.Title + " downloaded.");
         }
 
         private static void Login()
@@ -96,7 +218,7 @@ namespace WIMConsole
             {
                 Task loginTask = WebUtilities.LoginAsync(username, password);
                 VisualWaitForTask(loginTask, "Logging in");
-                Console.WriteLine("Logged in as " + username);
+                Console.WriteLine("Logged in as " + username + ".");
             }
             catch (Exception e)
             {

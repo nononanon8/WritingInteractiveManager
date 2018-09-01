@@ -10,20 +10,20 @@ namespace WIMCore
         public string Title { get; private set; }
         public string Author { get; private set; }
         public byte ChoiceNum { get; private set; }
-        public ushort ParentChapter { get; private set; }
+        public ushort ParentChapter { get; set; }
         public string Text { get; private set; }
         public List<ushort> ChildChapters { get; private set; }
-        public Dictionary<byte, string> ChoiceDescriptions { get; private set; }
+        public List<string> ChoiceDescriptions { get; private set; }
 
         private Chapter()
         {
             Title = "";
             Author = "";
-            ChoiceNum = 0;
+            ChoiceNum = 0xFF;
             ParentChapter = 0xFFFF;
             Text = "";
             ChildChapters = new List<ushort>();
-            ChoiceDescriptions = new Dictionary<byte, string>();
+            ChoiceDescriptions = new List<string>();
         }
 
         public Chapter(string title, byte choiceNum) : this()
@@ -46,14 +46,7 @@ namespace WIMCore
                 chapter.ChildChapters.Add(binReader.ReadUInt16());
             count = binReader.ReadByte();
             for (byte b = 0; b < count; b++)
-            {
-                byte key = binReader.ReadByte();
-                string val = binReader.ReadString();
-                if (chapter.ChoiceDescriptions.ContainsKey(key))
-                    chapter.ChoiceDescriptions[key] = val;
-                else
-                    chapter.ChoiceDescriptions.Add(key, val);
-            }
+                chapter.ChoiceDescriptions.Add(binReader.ReadString());
             return chapter;
         }
 
@@ -68,12 +61,52 @@ namespace WIMCore
             binWriter.Write((byte)ChildChapters.Count);
             foreach (ushort c in ChildChapters)
                 binWriter.Write(c);
-            binWriter.Write((byte)ChoiceDescriptions.Keys.Count);
-            foreach (byte k in ChoiceDescriptions.Keys)
+            binWriter.Write((byte)ChoiceDescriptions.Count);
+            foreach (string s in ChoiceDescriptions)
+                binWriter.Write(s);
+        }
+
+        public void Update(Chapter updatedChapter)
+        {
+            if (updatedChapter.Title != "")
+                Title = updatedChapter.Title;
+            if (updatedChapter.Author != "")
+                Author = updatedChapter.Author;
+            if (updatedChapter.ChoiceNum != 0xFF)
+                ChoiceNum = updatedChapter.ChoiceNum;
+            if (updatedChapter.ParentChapter != 0xFFFF)
+                ParentChapter = updatedChapter.ParentChapter;
+            if (updatedChapter.Text != "")
+                Text = updatedChapter.Text;
+            while (ChildChapters.Count < updatedChapter.ChildChapters.Count)
+                ChildChapters.Add(0xFFFF);
+            for(int i = 0; i < updatedChapter.ChildChapters.Count; i++)
             {
-                binWriter.Write(k);
-                binWriter.Write(ChoiceDescriptions[k]);
+                if (updatedChapter.ChildChapters[i] != 0xFFFF)
+                    ChildChapters[i] = updatedChapter.ChildChapters[i];
+            }
+            while (ChoiceDescriptions.Count < updatedChapter.ChoiceDescriptions.Count)
+                ChoiceDescriptions.Add("");
+            for(int i = 0; i < updatedChapter.ChoiceDescriptions.Count; i++)
+            {
+                if (updatedChapter.ChoiceDescriptions[i] != "")
+                    ChoiceDescriptions[i] = updatedChapter.ChoiceDescriptions[i];
             }
         }
+
+        public bool HasChild(byte choice)
+        {
+            if (choice >= ChildChapters.Count)
+                return false;
+            return ChildChapters[choice] != 0xFFFF;
+        }
+
+        public void AddChild(ushort chapterIndex, byte choice)
+        {
+            while (ChildChapters.Count <= choice)
+                ChildChapters.Add(0xFFFF);
+            ChildChapters[choice] = chapterIndex;
+        }
+
     }
 }
