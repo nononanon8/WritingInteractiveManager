@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using WIMCore;
 using System.Collections.Generic;
+using System.IO;
 
 namespace WIMConsole
 {
@@ -22,7 +23,9 @@ namespace WIMConsole
                     Console.WriteLine("2) Load Story");
                     Console.WriteLine("3) View Story Info");
                     Console.WriteLine("4) Begin Story");
-                    Console.WriteLine("5) Exit");
+                    Console.WriteLine("5) Save Story to File");
+                    Console.WriteLine("6) Load Story from File");
+                    Console.WriteLine("7) Exit");
                 }
                 reprintMenu = true;
                 Console.Write("Enter action number: ");
@@ -42,6 +45,12 @@ namespace WIMConsole
                         BeginStory();
                         break;
                     case "5":
+                        SaveStory();
+                        break;
+                    case "6":
+                        LoadLocalStory();
+                        break;
+                    case "7":
                         Console.WriteLine("Goodbye!");
                         Thread.Sleep(1000);
                         return;
@@ -104,6 +113,50 @@ namespace WIMConsole
                         return;
                     }
                 }
+            }
+        }
+
+        private static void SaveStory()
+        {
+            if(loadedStory == null)
+            {
+                Console.WriteLine("No story loaded.");
+                WaitForEnter();
+                return;
+            }
+            Console.Write("Enter file name: ");
+            string filename = Console.ReadLine() + ".wia";
+            try
+            {
+                using (FileStream fStream = new FileStream(filename, FileMode.Create))
+                {
+                    loadedStory.Write(fStream);
+                    fStream.Flush();
+                    Console.WriteLine("Successfully wrote story to file " + filename);
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Unable to write file " + filename + ": " + e.Message);
+            }
+        }
+
+        private static void LoadLocalStory()
+        {
+            Console.Write("Enter filename: ");
+            string filename = Console.ReadLine();
+            filename += ".wia";
+            try
+            {
+                using (FileStream fStream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    loadedStory = Interactive.LoadLocal(fStream);
+                }
+                Console.WriteLine("Successfully loaded story " + loadedStory.Title + " from file " + filename);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Unable to load story from file " + filename + ": " + e.Message);
             }
         }
 
