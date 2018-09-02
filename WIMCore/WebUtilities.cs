@@ -11,6 +11,7 @@ namespace WIMCore
     public static class WebUtilities
     {
         private const string LoginUrl = "https://www.writing.com/main/login.php";
+
         private static HttpClient httpClient = new HttpClient();
         private static Dictionary<string, string> cookieDict = new Dictionary<string, string>();
 
@@ -33,7 +34,7 @@ namespace WIMCore
             // Finish decoding HTML document.
             HtmlDocument responseDoc = await responseDocTask;
             // Check page title text to see if login was successful.
-            HtmlNode titleNode = WebUtilities.GetHtmlPageTitleNode(responseDoc);
+            HtmlNode titleNode = responseDoc.DocumentNode.SelectSingleNode(ParseParams.PageTitleXPath);
             if (titleNode.InnerText.Contains("Login Failed"))
                 throw new Exception("Login failed");
         }
@@ -104,66 +105,6 @@ namespace WIMCore
             return htmlDoc;
         }
 
-
-        // These methods are used to pick out a certain element from an HTML document based
-        // on some unique proprty. They all traverse the document the same way, wich ends up
-        // being bottom to top, depth first.
-
-        public static HtmlNode GetHtmlNodeByTag(HtmlNode rootNode, string tag)
-        {
-            List<HtmlNode> searchStack = new List<HtmlNode>() { rootNode };
-            while (searchStack.Count > 0)
-            {
-                HtmlNode currentNode = searchStack[searchStack.Count - 1];
-                if (currentNode.Name.Equals(tag, StringComparison.OrdinalIgnoreCase))
-                    return currentNode;
-                searchStack.RemoveAt(searchStack.Count - 1);
-                searchStack.AddRange(currentNode.ChildNodes);
-            }
-            return null;
-        }
-
-        public static HtmlNode GetHtmlNodeByAttribute(HtmlNode rootNode, string attribName, string attribValue)
-        {
-            List<HtmlNode> searchStack = new List<HtmlNode> { rootNode };
-            while (searchStack.Count > 0)
-            {
-                HtmlNode currentNode = searchStack[searchStack.Count - 1];
-                if (currentNode.GetAttributeValue(attribName, "").Equals(attribValue, StringComparison.OrdinalIgnoreCase))
-                    return currentNode;
-                searchStack.RemoveAt(searchStack.Count - 1);
-                searchStack.AddRange(currentNode.ChildNodes);
-            }
-            return null;
-        }
-
-        public static HtmlNode GetHtmlNodeByClass(HtmlNode rootNode, string className)
-        {
-            return GetHtmlNodeByAttribute(rootNode, "class", className);
-        }
-
-        // Searches for an element with the attribute that contains the given value, instead of an exact match.
-        public static HtmlNode GetHtmlNodeByAttributePartial(HtmlNode rootNode, string attribName, string partialAttribValue)
-        {
-            List<HtmlNode> searchStack = new List<HtmlNode> { rootNode };
-            while (searchStack.Count > 0)
-            {
-                HtmlNode currentNode = searchStack[searchStack.Count - 1];
-                if (currentNode.GetAttributeValue(attribName, "").Contains(partialAttribValue))
-                    return currentNode;
-                searchStack.RemoveAt(searchStack.Count - 1);
-                searchStack.AddRange(currentNode.ChildNodes);
-            }
-            return null;
-        }
-
-        
-        // Title node is in header so it can be obtained reliably via XPath (no traversal).
-        public static HtmlNode GetHtmlPageTitleNode(HtmlDocument htmlDoc)
-        {
-            return htmlDoc.DocumentNode.SelectSingleNode("html[1]/head[1]/title[1]");
-        }
-
         // Certain text symbols have an HTML escape encoding (there's probably a proper name, idk).
         // This replaces those with the correct characters.
         public static string CleanHtmlSymbols(string rawText)
@@ -180,7 +121,13 @@ namespace WIMCore
             return rawText;
         }
 
-        
+        public static string GetHtmlNodeText(HtmlDocument doc, string xPath)
+        {
+            HtmlNode node = doc.DocumentNode.SelectSingleNode(xPath);
+            if (node == null)
+                return "data not found";
+            return CleanHtmlSymbols(node.InnerText);
+        }
 
 
     }

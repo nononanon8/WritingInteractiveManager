@@ -126,8 +126,8 @@ namespace WIMConsole
                     chapterChoiceMap.Add(i.ToString(), chapter.ParentChapter);
                     i++;
                 }
-                Console.WriteLine(i + ") Download chapter data");
-                Console.WriteLine((i + 1).ToString() + ") Return to menu");
+                Console.WriteLine(i + ") **Download chapter data**");
+                Console.WriteLine((i + 1).ToString() + ") **Return to menu**");
                 bool inputValid = false;
                 while (!inputValid)
                 {

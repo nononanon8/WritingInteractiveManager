@@ -111,15 +111,34 @@ namespace WIMCore
         public async Task DownloadData(string chapterUrl)
         {
             HtmlDocument chapterDoc = await WebUtilities.GetHtmlDocumentAsync(chapterUrl);
-            bool gotBusyPage = !WebUtilities.GetHtmlPageTitleNode(chapterDoc).InnerText.Contains(Title);
+            HtmlNode pageTitleNode = chapterDoc.DocumentNode.SelectSingleNode(ParseParams.PageTitleXPath);
+            bool gotBusyPage = !pageTitleNode.InnerText.Contains(Title);
             while (gotBusyPage)
             {
                 await Task.Delay(2000);
                 chapterDoc = await WebUtilities.GetHtmlDocumentAsync(chapterUrl);
-                gotBusyPage = !WebUtilities.GetHtmlPageTitleNode(chapterDoc).InnerText.Contains(Title);
+                pageTitleNode = chapterDoc.DocumentNode.SelectSingleNode(ParseParams.PageTitleXPath);
+                gotBusyPage = !pageTitleNode.InnerText.Contains(Title);
             }
-            HtmlNode textNode = WebUtilities.GetHtmlNodeByClass(chapterDoc.DocumentNode, "KonaBody");
-            Text = WebUtilities.CleanHtmlSymbols(textNode.InnerText);
+            Author = WebUtilities.GetHtmlNodeText(chapterDoc, ParseParams.ChAuthorXPath);
+            Text = WebUtilities.GetHtmlNodeText(chapterDoc, ParseParams.ChTextXPath);
+            HtmlNodeCollection cdns = chapterDoc.DocumentNode.SelectNodes(ParseParams.ChChoiceDescrptionsXPath);
+            if(cdns != null)
+            {
+                List<HtmlNode> choiceDescrptionNodes = new List<HtmlNode>(cdns);
+                for (int i = 0; i < choiceDescrptionNodes.Count; i++)
+                {
+                    HtmlNode choiceNumNode = choiceDescrptionNodes[i].SelectSingleNode("b");
+                    string choiceNumText = choiceNumNode.InnerText;
+                    int choice = int.Parse(choiceNumText.Substring(0, choiceNumText.IndexOf('.')));
+                    HtmlNode descriptionNode = choiceDescrptionNodes[i].SelectSingleNode("a");
+                    string description = WebUtilities.CleanHtmlSymbols(descriptionNode.InnerText);
+                    while (ChoiceDescriptions.Count <= choice)
+                        ChoiceDescriptions.Add("");
+                    ChoiceDescriptions[choice] = description;
+                }
+            }
+            
         }
     }
 }

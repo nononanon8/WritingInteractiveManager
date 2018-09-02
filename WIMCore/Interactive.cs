@@ -9,9 +9,6 @@ namespace WIMCore
 {
     public class Interactive
     {
-        private const string BaseUrl = "https://www.writing.com/main/interact/item_id/";
-        private const string OutlineUrlSeg = "/action/pop_outline";
-
         public uint ItemId { get; private set; }
         public string Title { get; private set; }
         public string Owner { get; private set; }
@@ -40,28 +37,27 @@ namespace WIMCore
         {
             Interactive story = new Interactive(itemId);
             // Get HTML document for main story page.
-            HtmlDocument htmlDoc = await WebUtilities.GetHtmlDocumentAsync(BaseUrl + itemId);
+            HtmlDocument htmlDoc = await WebUtilities.GetHtmlDocumentAsync(ParseParams.IABaseUrl + itemId);
             // Start downloading outline page.
-            Task<HtmlDocument> outlineDocTask = WebUtilities.GetHtmlDocumentAsync(BaseUrl + itemId + OutlineUrlSeg);
+            Task<HtmlDocument> outlineDocTask = WebUtilities.GetHtmlDocumentAsync(ParseParams.IABaseUrl+ itemId + ParseParams.IAOutlineUrlSegment);
             // Check page title node to see if a valid ID was given.
-            HtmlNode pageTitleNode = WebUtilities.GetHtmlPageTitleNode(htmlDoc);
-            if (pageTitleNode.InnerText.Contains("Item Not Found"))
+            //HtmlNode pageTitleNode = WebUtilities.GetHtmlPageTitleNode(htmlDoc);
+            HtmlNode pageTitleNode = htmlDoc.DocumentNode.SelectSingleNode(ParseParams.PageTitleXPath);
+            if (pageTitleNode == null)
+                throw new Exception("Parsing error: Cannot find page title. Unable to assess response success.");
+            else if (pageTitleNode.InnerText.Contains("Item Not Found"))
                 throw new Exception("Story not found");
 
             // Find the HTML node with the text for each field we need, and assign the field value.
-            HtmlNode titleNode = WebUtilities.GetHtmlNodeByClass(htmlDoc.DocumentNode, "proll");
-            story.Title = WebUtilities.CleanHtmlSymbols(titleNode.InnerText);
-            HtmlNode ownerNode = WebUtilities.GetHtmlNodeByAttributePartial(htmlDoc.DocumentNode, "title", "Username:");
-            story.Owner = WebUtilities.CleanHtmlSymbols(ownerNode.InnerText);
-            HtmlNode descriptionNode = WebUtilities.GetHtmlNodeByAttribute(htmlDoc.DocumentNode, "NAME", "description");
-            story.Description = WebUtilities.CleanHtmlSymbols(descriptionNode.Attributes["content"].Value);
-            HtmlNode infoTextNode = WebUtilities.GetHtmlNodeByTag(htmlDoc.DocumentNode, "td");
-            story.InfoText = WebUtilities.CleanHtmlSymbols(infoTextNode.InnerText);
+            story.Title = WebUtilities.GetHtmlNodeText(htmlDoc, ParseParams.IATitleXPath);
+            story.Owner = WebUtilities.GetHtmlNodeText(htmlDoc, ParseParams.IAOwnerPath);
+            story.Description = WebUtilities.GetHtmlNodeText(htmlDoc, ParseParams.IADescriptionXPath);
+            story.InfoText = WebUtilities.GetHtmlNodeText(htmlDoc, ParseParams.IAInfoTextXPath);
 
             // Finish getting the outline HTML document.
             HtmlDocument outlineDoc = await outlineDocTask;
             // Parse out chapter names and map structure.
-            HtmlNode outlineParentNode = WebUtilities.GetHtmlNodeByTag(outlineDoc.DocumentNode, "pre");
+            HtmlNode outlineParentNode = outlineDoc.DocumentNode.SelectSingleNode(ParseParams.IAOutlineParentXPath);
             List<HtmlNode> outlineHtmlNodes = new List<HtmlNode>(outlineParentNode.ChildNodes);
             int nodeIndex = 0;
             HtmlNode spanNode = null;
@@ -185,7 +181,7 @@ namespace WIMCore
 
         public async Task DownloadChapterData(ushort chapterIndex)
         {
-            string url = BaseUrl + ItemId + "/map/" + GetChoicePathString(chapterIndex);
+            string url = ParseParams.IABaseUrl + ItemId + "/map/" + GetChoicePathString(chapterIndex);
             await Chapters[chapterIndex].DownloadData(url);
         }
 
