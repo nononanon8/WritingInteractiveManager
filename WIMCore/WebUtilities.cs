@@ -79,6 +79,8 @@ namespace WIMCore
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
             // Add cookies so we can access member-only pages with login info.
             request.Headers.Add("Cookie", GetCookieStrings());
+            //if (cookieDict.ContainsKey("user_token"))
+            //    request.Headers.Add("Cookie", "user_token=" + cookieDict["user_token"]);
             HttpResponseMessage response = await httpClient.SendAsync(request);
             Task<string> htmlTask = response.Content.ReadAsStringAsync();
             // All responses contain "Set-Cookie" headers, not sure how important they are.

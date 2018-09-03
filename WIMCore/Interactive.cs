@@ -185,6 +185,24 @@ namespace WIMCore
             await Chapters[chapterIndex].DownloadData(url);
         }
 
+        public List<ushort> GetSubBranchChapters(ushort rootChapter)
+        {
+            List<ushort> sbChapters = new List<ushort>();
+            List<ushort> searchStack = new List<ushort> { rootChapter };
+            while (searchStack.Count > 0)
+            {
+                ushort chIdx = searchStack[searchStack.Count - 1];
+                searchStack.RemoveAt(searchStack.Count - 1);
+                sbChapters.Add(chIdx);
+                foreach(ushort cc in Chapters[chIdx].ChildChapters)
+                {
+                    if (cc != 0xFFFF)
+                        searchStack.Add(cc);
+                }
+            }
+            return sbChapters;
+        }
+
         public static Interactive LoadLocal(Stream stream)
         {
             Interactive story = new Interactive();

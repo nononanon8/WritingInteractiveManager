@@ -7,6 +7,9 @@ namespace WIMCore
 {
     public class Chapter
     {
+        public static bool CancelDownloads { private get; set; }
+        public static int DownloadAttempts { get; private set; }
+
         public string Title { get; private set; }
         public string Author { get; private set; }
         public byte ChoiceNum { get; private set; }
@@ -110,16 +113,23 @@ namespace WIMCore
 
         public async Task DownloadData(string chapterUrl)
         {
+            CancelDownloads = false;
+            DownloadAttempts = 1;
             HtmlDocument chapterDoc = await WebUtilities.GetHtmlDocumentAsync(chapterUrl);
-            HtmlNode pageTitleNode = chapterDoc.DocumentNode.SelectSingleNode(ParseParams.PageTitleXPath);
-            bool gotBusyPage = !pageTitleNode.InnerText.Contains(Title);
-            while (gotBusyPage)
+            string pageTitle = WebUtilities.GetHtmlNodeText(chapterDoc, ParseParams.PageTitleXPath);
+            while (pageTitle.Contains("Interactives Temporarily Unavailable"))
             {
+                if (CancelDownloads)
+                    return;
                 await Task.Delay(2000);
+                DownloadAttempts++;
+                if (DownloadAttempts > 30)
+                    throw new System.Exception("Reached max download attempts");
                 chapterDoc = await WebUtilities.GetHtmlDocumentAsync(chapterUrl);
-                pageTitleNode = chapterDoc.DocumentNode.SelectSingleNode(ParseParams.PageTitleXPath);
-                gotBusyPage = !pageTitleNode.InnerText.Contains(Title);
+                pageTitle = WebUtilities.GetHtmlNodeText(chapterDoc, ParseParams.PageTitleXPath);
             }
+            if (!pageTitle.Contains(Title))
+                throw new System.Exception("Unexpected response: " + pageTitle);
             Author = WebUtilities.GetHtmlNodeText(chapterDoc, ParseParams.ChAuthorXPath);
             Text = WebUtilities.GetHtmlNodeText(chapterDoc, ParseParams.ChTextXPath);
             HtmlNodeCollection cdns = chapterDoc.DocumentNode.SelectNodes(ParseParams.ChChoiceDescrptionsXPath);

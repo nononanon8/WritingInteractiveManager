@@ -23,9 +23,10 @@ namespace WIMConsole
                     Console.WriteLine("2) Load Story");
                     Console.WriteLine("3) View Story Info");
                     Console.WriteLine("4) Begin Story");
-                    Console.WriteLine("5) Save Story to File");
-                    Console.WriteLine("6) Load Story from File");
-                    Console.WriteLine("7) Exit");
+                    Console.WriteLine("5) Download All Chapters");
+                    Console.WriteLine("6) Save Story to File");
+                    Console.WriteLine("7) Load Story from File");
+                    Console.WriteLine("8) Exit");
                 }
                 reprintMenu = true;
                 Console.Write("Enter action number: ");
@@ -45,12 +46,15 @@ namespace WIMConsole
                         BeginStory();
                         break;
                     case "5":
-                        SaveStory();
+                        DownloadAllChapters();
                         break;
                     case "6":
-                        LoadLocalStory();
+                        SaveStory();
                         break;
                     case "7":
+                        LoadLocalStory();
+                        break;
+                    case "8":
                         Console.WriteLine("Goodbye!");
                         Thread.Sleep(1000);
                         return;
@@ -167,20 +171,23 @@ namespace WIMConsole
                 Chapter chapter = loadedStory.Chapters[chapterIndex];
                 DisplayChapter(chapter);
                 Dictionary<string, ushort> chapterChoiceMap = new Dictionary<string, ushort>();
-                int i = 0;
-                for (i = 0; i < chapter.ChildChapters.Count; i++)
+                for (int i = 0; i < chapter.ChildChapters.Count; i++)
                 {
                     if (chapter.ChildChapters[i] != 0xFFFF)
                         chapterChoiceMap.Add(i.ToString(), chapter.ChildChapters[i]);
                 }
+                string[] extraChoices;
                 if (chapter.ParentChapter != 0xFFFF)
                 {
-                    Console.WriteLine(i + ") Go back to previous chapter");
-                    chapterChoiceMap.Add(i.ToString(), chapter.ParentChapter);
-                    i++;
+                    Console.WriteLine("a) Go back to previous chapter");
+                    chapterChoiceMap.Add("a", chapter.ParentChapter);
+                    extraChoices = new string[] { "b", "c", "d" };
                 }
-                Console.WriteLine(i + ") **Download chapter data**");
-                Console.WriteLine((i + 1).ToString() + ") **Return to menu**");
+                else
+                    extraChoices = new string[] { "a", "b", "c" };
+                Console.WriteLine(extraChoices[0] + ") Download chapter data");
+                Console.WriteLine(extraChoices[1] + ") Download entire branch");
+                Console.WriteLine(extraChoices[2] + ") Return to menu");
                 bool inputValid = false;
                 while (!inputValid)
                 {
@@ -191,13 +198,17 @@ namespace WIMConsole
                         inputValid = true;
                         chapterIndex = chapterChoiceMap[choice];
                     }
-                    else if(choice == i.ToString())
+                    else if(choice == extraChoices[0])
                     {
                         inputValid = true;
-                        Task chapterDownloadTask = loadedStory.DownloadChapterData(chapterIndex);
-                        VisualWaitForTask(chapterDownloadTask, "Downloading chapter data");
+                        DownloadChapter(chapterIndex);
                     }
-                    else if(choice == (i + 1).ToString())
+                    else if(choice == extraChoices[1])
+                    {
+                        inputValid = true;
+                        DownloadStoryBranch(chapterIndex);
+                    }
+                    else if(choice == extraChoices[2])
                     {
                         inputValid = true;
                         return;
@@ -319,6 +330,101 @@ namespace WIMConsole
             Console.WriteLine("\r" + message + " " + workingDots[2]);
             if (task.Status == TaskStatus.Faulted)
                 throw task.Exception;
+        }
+
+        private static void DownloadChapter(ushort chapterIndex)
+        {
+            List<ushort> indices = new List<ushort>();
+            indices.Add(chapterIndex);
+            DownloadChapters(indices, true);
+        }
+
+        private static void DownloadAllChapters()
+        {
+            if(loadedStory == null)
+            {
+                Console.WriteLine("No story loaded.");
+                return;
+            }
+            List<ushort> allChapters = new List<ushort>();
+            while (allChapters.Count < loadedStory.Chapters.Count)
+                allChapters.Add((ushort)allChapters.Count);
+            DownloadChapters(allChapters);
+        }
+
+        private static void DownloadStoryBranch(ushort rootChapterIndex)
+        {
+            List<ushort> branchChapterIndices = loadedStory.GetSubBranchChapters(rootChapterIndex);
+            DownloadChapters(branchChapterIndices);
+        }
+
+        private static void DownloadChapters(List<ushort> chapterIndices, bool forceRedownload = false)
+        {
+            string[] workingDots = new string[3] { ".   ", "..  ", "... " };
+            if (!forceRedownload)
+            {
+                for(int j = 0; j < chapterIndices.Count; j++)
+                {
+                    if(loadedStory.Chapters[chapterIndices[j]].Text != "")
+                    {
+                        chapterIndices.RemoveAt(j);
+                        j--;
+                    }
+                }
+            }
+            int i = 0;
+            Console.WriteLine("Press any key to cancel.");
+            int chapterIdxIdx = 0;
+            int successCount = 0;
+            int failureCount = 0;
+            List<string> failMessages = new List<string>();
+            while (chapterIdxIdx < chapterIndices.Count && !Console.KeyAvailable)
+            {
+                Task dlTask = loadedStory.DownloadChapterData(chapterIndices[chapterIdxIdx]);
+                while (dlTask.Status != TaskStatus.RanToCompletion && dlTask.Status != TaskStatus.Faulted && !Console.KeyAvailable)
+                {
+                    Console.Write("\r" + "Downloading chapters (attempt " + Chapter.DownloadAttempts + ") ");
+                    Console.Write("(" + successCount + "/" + chapterIndices.Count + " completed) ");
+                    Console.Write("(" + failureCount + " failures) " + workingDots[i]);
+                    if (i < 2)
+                        i++;
+                    else
+                        i = 0;
+                    Thread.Sleep(500);
+                }
+                if (dlTask.Status == TaskStatus.RanToCompletion)
+                    successCount++;
+                else if (dlTask.Status == TaskStatus.Faulted)
+                {
+                    failureCount++;
+                    string message = dlTask.Exception.Message;
+                    if (!failMessages.Contains(message))
+                        failMessages.Add(message);
+                }
+                else if (Console.KeyAvailable)
+                    Chapter.CancelDownloads = true;
+
+                chapterIdxIdx++;
+            }
+            Console.Write("\r" + "Downloading chapters (attempt " + Chapter.DownloadAttempts + ") ");
+            Console.Write("(" + successCount + "/" + chapterIndices.Count + " completed) ");
+            Console.WriteLine("(" + failureCount + " failures) " + workingDots[2]);
+            if (Console.KeyAvailable)
+            {
+                Console.WriteLine("Canceled");
+                while (Console.KeyAvailable)
+                    Console.ReadKey(false);
+            }
+            else
+            {
+                if(failureCount > 0)
+                {
+                    Console.WriteLine("Failure messages: ");
+                    foreach (string msg in failMessages)
+                        Console.WriteLine(msg);
+                }
+            }
+            WaitForEnter();
         }
     }
 }
