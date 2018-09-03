@@ -1,9 +1,9 @@
 # WritingInteractiveManager
 Download, view, and archive interactive stories from Writing.com.
 
-Nothing is in a usable state yet.  
+Console app works mostly, but it and the library need more error resistance.  
 
 /WIMCore/ : Library for interacting with Writing.com. Can be used if you want to make your own app interface.  
 /WIMConsole/ : Terminal app mainly for debugging. Should be cross-platform through .NET Core.  
-/WIMWindows/ : Windows Forms app for desktop.  
+/WIMWindows/ : Windows Forms app for desktop (not started).  
 Android app also planned.  
