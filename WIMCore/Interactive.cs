@@ -41,10 +41,9 @@ namespace WIMCore
             // Start downloading outline page.
             Task<HtmlDocument> outlineDocTask = WebUtilities.GetHtmlDocumentAsync(ParseParams.IABaseUrl+ itemId + ParseParams.IAOutlineUrlSegment);
             // Check page title node to see if a valid ID was given.
-            //HtmlNode pageTitleNode = WebUtilities.GetHtmlPageTitleNode(htmlDoc);
             HtmlNode pageTitleNode = htmlDoc.DocumentNode.SelectSingleNode(ParseParams.PageTitleXPath);
             if (pageTitleNode == null)
-                throw new Exception("Parsing error: Cannot find page title. Unable to assess response success.");
+                throw new Exception("Cannot find page title.");
             else if (pageTitleNode.InnerText.Contains("Item Not Found"))
                 throw new Exception("Story not found");
 
@@ -56,6 +55,10 @@ namespace WIMCore
 
             // Finish getting the outline HTML document.
             HtmlDocument outlineDoc = await outlineDocTask;
+            // Check if we got the "Please Login" message.
+            HtmlNode loginNode = outlineDoc.DocumentNode.SelectSingleNode(ParseParams.IAOutlineLoginXPath);
+            if (loginNode != null && loginNode.InnerText.Contains("Please login"))
+                throw new Exception("Not logged in, unable to access outline.");
             // Parse out chapter names and map structure.
             HtmlNode outlineParentNode = outlineDoc.DocumentNode.SelectSingleNode(ParseParams.IAOutlineParentXPath);
             List<HtmlNode> outlineHtmlNodes = new List<HtmlNode>(outlineParentNode.ChildNodes);
@@ -201,6 +204,24 @@ namespace WIMCore
                 }
             }
             return sbChapters;
+        }
+
+        public int GetBranchSize(ushort rootChapter)
+        {
+            int count = 0;
+            List<ushort> searchStack = new List<ushort> { rootChapter };
+            while(searchStack.Count > 0)
+            {
+                ushort chIdx = searchStack[searchStack.Count - 1];
+                searchStack.RemoveAt(searchStack.Count - 1);
+                count++;
+                foreach(ushort cc in Chapters[chIdx].ChildChapters)
+                {
+                    if (cc != 0xFFFF)
+                        searchStack.Add(cc);
+                }
+            }
+            return count;
         }
 
         public static Interactive LoadLocal(Stream stream)

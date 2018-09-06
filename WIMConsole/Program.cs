@@ -71,6 +71,7 @@ namespace WIMConsole
             if(loadedStory == null)
             {
                 Console.WriteLine("No story loaded.");
+                WaitForEnter();
                 return;
             }
             int usedRootChapterCount = loadedStory.GetUsedRootChapterCount();
@@ -166,6 +167,7 @@ namespace WIMConsole
 
         private static void ExploreStory(ushort chapterIndex)
         {
+            // Called from BeginStory().
             while (true)
             {
                 Chapter chapter = loadedStory.Chapters[chapterIndex];
@@ -223,6 +225,7 @@ namespace WIMConsole
 
         private static void DisplayChapter(Chapter chapter)
         {
+            // Called from ExploreStory().
             Console.WriteLine();
             Console.Write("Choice Path: ");
             foreach (byte c in loadedStory.GetChoicePath(chapter))
@@ -231,16 +234,17 @@ namespace WIMConsole
             Console.WriteLine("Chapter Title: " + chapter.Title);
             Console.WriteLine("Author: " + chapter.Author);
             Console.WriteLine(chapter.Text);
-            Console.WriteLine("You have the following choices:");
+            Console.WriteLine(Environment.NewLine + "You have the following choices:");
             for(int i = 0; i < chapter.ChildChapters.Count; i++)
             {
                 if(chapter.ChildChapters[i] != 0xFFFF)
                 {
                     Console.Write(i + ") ");
                     if (chapter.ChoiceDescriptions.Count > i && chapter.ChoiceDescriptions[i] != "")
-                        Console.WriteLine(chapter.ChoiceDescriptions[i]);
+                        Console.Write(chapter.ChoiceDescriptions[i]);
                     else
-                        Console.WriteLine(loadedStory.Chapters[chapter.ChildChapters[i]].Title);
+                        Console.Write(loadedStory.Chapters[chapter.ChildChapters[i]].Title);
+                    Console.WriteLine(" (" + loadedStory.GetBranchSize(chapter.ChildChapters[i]) + ")");
                 }
             }
         }
@@ -279,6 +283,7 @@ namespace WIMConsole
             {
                 Console.WriteLine("Unable to download story info: " + e.Message);
                 WaitForEnter();
+                return;
             }
             Console.WriteLine("Info for " + loadedStory.Title + " downloaded.");
         }
@@ -308,6 +313,7 @@ namespace WIMConsole
             if(loadedStory == null)
             {
                 Console.WriteLine("No story loaded");
+                WaitForEnter();
                 return;
             }
             Console.WriteLine(loadedStory.ToString());
@@ -344,6 +350,7 @@ namespace WIMConsole
             if(loadedStory == null)
             {
                 Console.WriteLine("No story loaded.");
+                WaitForEnter();
                 return;
             }
             List<ushort> allChapters = new List<ushort>();
@@ -415,14 +422,11 @@ namespace WIMConsole
                 while (Console.KeyAvailable)
                     Console.ReadKey(false);
             }
-            else
+            if(failureCount > 0)
             {
-                if(failureCount > 0)
-                {
-                    Console.WriteLine("Failure messages: ");
-                    foreach (string msg in failMessages)
-                        Console.WriteLine(msg);
-                }
+                Console.WriteLine("Failure messages: ");
+                foreach (string msg in failMessages)
+                    Console.WriteLine(msg);
             }
             WaitForEnter();
         }

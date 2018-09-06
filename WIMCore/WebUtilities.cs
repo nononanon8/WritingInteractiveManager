@@ -52,15 +52,18 @@ namespace WIMCore
                 // Parse out cookie name (dictionary key) and value.
                 string cookieStr = cookieStrings[i];
                 int eqIndex = cookieStr.IndexOf('=');
-                if (eqIndex < 0)
-                    throw new Exception("Invalid cookie string: " + cookieStr);
-                string key = cookieStr.Substring(0, eqIndex);
-                string val = cookieStr.Substring(eqIndex + 1, cookieStr.IndexOf(';') - (eqIndex + 1));
-                // Update existing cookie value or add new cookie to dictionary.
-                if (cookieDict.ContainsKey(key))
-                    cookieDict[key] = val;
-                else
-                    cookieDict.Add(key, val);
+                // Ignore if '=' not found.
+                if (eqIndex >= 0)
+                {
+                    string key = cookieStr.Substring(0, eqIndex);
+                    string val = cookieStr.Substring(eqIndex + 1, cookieStr.IndexOf(';') - (eqIndex + 1));
+                    // Update existing cookie value or add new cookie to dictionary.
+                    if (cookieDict.ContainsKey(key))
+                        cookieDict[key] = val;
+                    else
+                        cookieDict.Add(key, val);
+                }
+                
             }
         }
 
